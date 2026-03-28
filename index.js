@@ -1,148 +1,145 @@
 const dns = require("dns");
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const { request } = require("http");
 
 const app = express();
-const port = 5000;
 
 app.use(express.json());
 app.use(cors());
 
-// MongoDB setup
+// MongoDB URI
 const uri = `mongodb+srv://${process.env.USER_NAME}:${process.env.USER_PASSWORD}@cluster0.0cvs0uq.mongodb.net/?appName=Cluster0`;
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
 
-// let taskCollection; // 👈 declare properly
-
-// async function run() {
-//   try {
-//     await client.connect();
-//     const db = client.db("taskDB");
-//     taskCollection = db.collection("tasks");
-//     console.log("Connected to MongoDB!");
-//   } catch (err) {
-//     console.error("MongoDB connection error:", err);
-//   }
-// }
-
-//test
-
+// ✅ Cached variables (VERY IMPORTANT for Vercel)
+let client;
 let taskCollection;
 
+// ✅ Proper DB connection function
 async function connectDB() {
-  if (!client) {
-    client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db("taskDB");
-    taskCollection = db.collection("tasks");
-    console.log("Mongo connected");
+  if (taskCollection) {
+    return taskCollection; // reuse existing connection
   }
+
+  client = new MongoClient(uri, {
+    serverApi: {
+      version: ServerApiVersion.v1,
+      strict: true,
+      deprecationErrors: true,
+    },
+    serverSelectionTimeoutMS: 5000,
+  });
+
+  await client.connect();
+
+  const db = client.db("taskDB");
+  taskCollection = db.collection("tasks");
+
+  console.log("✅ MongoDB Connected");
+
+  return taskCollection;
 }
-
-//test
-
-run().catch(console.dir);
 
 // Routes
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-//get
+// ✅ GET all tasks
 app.get("/allTask", async (req, res) => {
   try {
-    await connectDB(); // 👈 IMPORTANT test
-    const taskData = req.body;
-    const result = await taskCollection.find().toArray();
+    const collection = await connectDB();
+    const result = await collection.find().toArray();
     res.send(result);
   } catch (err) {
+    console.error(err);
     res.status(500).send({ error: "Failed to get task" });
   }
 });
-//get
+
+// ✅ GET today tasks
 app.get("/todayTask", async (req, res) => {
   try {
-    await connectDB(); // 👈 IMPORTANT test
+    const collection = await connectDB();
     const today = new Date().toISOString().split("T")[0];
-    const result = await taskCollection
-      .find({
-        date: today,
-      })
-      .toArray();
+
+    const result = await collection.find({ date: today }).toArray();
+
     res.send(result);
   } catch (err) {
+    console.error(err);
     res.status(500).send({ error: "Failed to get task" });
   }
 });
-//get
+
+// ✅ GET upcoming tasks
 app.get("/upcomingTask", async (req, res) => {
-  const today = new Date().toISOString().split("T")[0];
+  try {
+    const collection = await connectDB();
+    const today = new Date().toISOString().split("T")[0];
 
-  const result = await taskCollection
-    .find({
-      date: { $gt: today },
-    })
-    .toArray();
+    const result = await collection.find({ date: { $gt: today } }).toArray();
 
-  res.send(result);
+    res.send(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Failed to get task" });
+  }
 });
 
-//post
-
+// ✅ POST new task
 app.post("/allTask", async (req, res) => {
   try {
-    await connectDB(); // 👈 IMPORTANT test
+    const collection = await connectDB();
     const taskData = req.body;
-    const result = await taskCollection.insertOne(taskData);
+
+    const result = await collection.insertOne(taskData);
     res.send(result);
   } catch (err) {
+    console.error(err);
     res.status(500).send({ error: "Failed to insert task" });
   }
 });
-//patch
 
+// ✅ PATCH update status
 app.patch("/updateStatus/:id", async (req, res) => {
   try {
-    await connectDB(); // 👈 IMPORTANT test
+    const collection = await connectDB();
     const id = req.params.id;
     const { status } = req.body;
-    const result = await taskCollection.updateOne(
+
+    const result = await collection.updateOne(
       { _id: new ObjectId(id) },
-      {
-        $set: { status: status },
-      },
+      { $set: { status } },
     );
+
     res.send(result);
   } catch (err) {
-    res.status(500).send({ error: "Failed to insert task" });
+    console.error(err);
+    res.status(500).send({ error: "Failed to update task" });
   }
 });
-//delete
 
+// ✅ DELETE task
 app.delete("/delete/:id", async (req, res) => {
   try {
-    await connectDB(); // 👈 IMPORTANT test
+    const collection = await connectDB();
     const id = req.params.id;
-    const result = await taskCollection.deleteOne({ _id: new ObjectId(id) });
+
+    const result = await collection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
     res.send(result);
   } catch (err) {
-    res.status(500).send({ error: "Failed to insert task" });
+    console.error(err);
+    res.status(500).send({ error: "Failed to delete task" });
   }
 });
 
-// Start server
-// app.listen(port, () => {
-//   console.log(`Server listening on port ${port}`);
-// });
-
+// ❌ DO NOT use app.listen() in Vercel
 module.exports = app;
