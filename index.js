@@ -56,8 +56,8 @@ app.get("/allTask", async (req, res) => {
     const result = await collection.find().toArray();
     res.send(result);
   } catch (err) {
-    console.error("🔥 ERROR:", err); // 👈 IMPORTANT
-    res.status(500).send({ error: err.message }); // 👈 show real error
+    console.error(err);
+    res.status(500).send({ error: "Failed to get task" });
   }
 });
 
