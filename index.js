@@ -22,18 +22,34 @@ const client = new MongoClient(uri, {
   },
 });
 
-let taskCollection; // 👈 declare properly
+// let taskCollection; // 👈 declare properly
 
-async function run() {
-  try {
+// async function run() {
+//   try {
+//     await client.connect();
+//     const db = client.db("taskDB");
+//     taskCollection = db.collection("tasks");
+//     console.log("Connected to MongoDB!");
+//   } catch (err) {
+//     console.error("MongoDB connection error:", err);
+//   }
+// }
+
+//test
+
+let taskCollection;
+
+async function connectDB() {
+  if (!client) {
+    client = new MongoClient(uri);
     await client.connect();
     const db = client.db("taskDB");
     taskCollection = db.collection("tasks");
-    console.log("Connected to MongoDB!");
-  } catch (err) {
-    console.error("MongoDB connection error:", err);
+    console.log("Mongo connected");
   }
 }
+
+//test
 
 run().catch(console.dir);
 
@@ -45,6 +61,7 @@ app.get("/", (req, res) => {
 //get
 app.get("/allTask", async (req, res) => {
   try {
+    await connectDB(); // 👈 IMPORTANT test
     const taskData = req.body;
     const result = await taskCollection.find().toArray();
     res.send(result);
@@ -55,6 +72,7 @@ app.get("/allTask", async (req, res) => {
 //get
 app.get("/todayTask", async (req, res) => {
   try {
+    await connectDB(); // 👈 IMPORTANT test
     const today = new Date().toISOString().split("T")[0];
     const result = await taskCollection
       .find({
@@ -83,6 +101,7 @@ app.get("/upcomingTask", async (req, res) => {
 
 app.post("/allTask", async (req, res) => {
   try {
+    await connectDB(); // 👈 IMPORTANT test
     const taskData = req.body;
     const result = await taskCollection.insertOne(taskData);
     res.send(result);
@@ -94,6 +113,7 @@ app.post("/allTask", async (req, res) => {
 
 app.patch("/updateStatus/:id", async (req, res) => {
   try {
+    await connectDB(); // 👈 IMPORTANT test
     const id = req.params.id;
     const { status } = req.body;
     const result = await taskCollection.updateOne(
@@ -111,6 +131,7 @@ app.patch("/updateStatus/:id", async (req, res) => {
 
 app.delete("/delete/:id", async (req, res) => {
   try {
+    await connectDB(); // 👈 IMPORTANT test
     const id = req.params.id;
     const result = await taskCollection.deleteOne({ _id: new ObjectId(id) });
     res.send(result);
